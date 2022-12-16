@@ -46,6 +46,7 @@ abstract class ModularizeDependenciesTask extends DefaultTask {
             try (FileSystem jarFs = FileSystems.newFileSystem(URI.create("jar:" + dependencyModule.path.toUri()), Map.of())) {
                 Path manifestPath = jarFs.getPath("META-INF", "MANIFEST.MF")
                 Path moduleInfo = jarFs.getPath("module-info.class")
+
                 if (!Files.exists(moduleInfo)) {
                     if (Files.exists(manifestPath)) {
                         try (InputStream is = Files.newInputStream(manifestPath)) {
@@ -59,7 +60,7 @@ abstract class ModularizeDependenciesTask extends DefaultTask {
                         }
                     } else {
                         Manifest manifest = new Manifest();
-                        manifest.getMainAttributes().put(new Attributes.Name(AUTOMATIC_MODULE_NAME), dependency.getModuleName());
+                        manifest.getMainAttributes().put(new Attributes.Name(AUTOMATIC_MODULE_NAME), dependencyModule.moduleName);
                         try (OutputStream jarOutput = Files.newOutputStream(manifestPath)) {
                             manifest.write(jarOutput);
                         }

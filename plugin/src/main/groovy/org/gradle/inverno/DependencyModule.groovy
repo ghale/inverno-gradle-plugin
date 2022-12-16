@@ -14,5 +14,9 @@ class DependencyModule {
         this.moduleReference = moduleReference;
     }
 
+    String getModuleName() {
+        return moduleReference.descriptor().name(); // TODO: 1. Can moduleReference be null? 2. There's additional logic in the maven plugin
+    }
+
 }
 
