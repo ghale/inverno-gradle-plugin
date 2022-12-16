@@ -1,7 +1,7 @@
 package org.gradle.inverno
 
 import org.gradle.api.DefaultTask
-import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileSystemOperations
@@ -22,6 +22,8 @@ abstract class ModularizeDependenciesTask extends DefaultTask {
 
     public static final String AUTOMATIC_MODULE_NAME = "Automatic-Module-Name"
 
+    Configuration configuration
+
     @Inject
     @InputFiles
     abstract FileCollection getDependencies()
@@ -30,11 +32,12 @@ abstract class ModularizeDependenciesTask extends DefaultTask {
     @OutputDirectory
     abstract DirectoryProperty getExplodedDirectory()
 
-    @Inject abstract FileSystemOperations getFilesystemOperations()
+    @Inject
+    abstract FileSystemOperations getFilesystemOperations()
 
     @TaskAction
     void execute() {
-        def dependencyModules = new ResolveDependenciesTask(dependencies).execute()
+        def dependencyModules = new ResolveDependenciesTask(configuration).execute()
 
         if (explodedDirectory.getAsFile().get().exists()) {
             getFilesystemOperations().delete {
@@ -42,7 +45,7 @@ abstract class ModularizeDependenciesTask extends DefaultTask {
             }
         }
 
-        dependencyModules.each {dependencyModule ->
+        dependencyModules.each { dependencyModule ->
             try (FileSystem jarFs = FileSystems.newFileSystem(URI.create("jar:" + dependencyModule.path.toUri()), Map.of())) {
                 Path manifestPath = jarFs.getPath("META-INF", "MANIFEST.MF")
                 Path moduleInfo = jarFs.getPath("module-info.class")
@@ -51,8 +54,9 @@ abstract class ModularizeDependenciesTask extends DefaultTask {
                     if (Files.exists(manifestPath)) {
                         try (InputStream is = Files.newInputStream(manifestPath)) {
                             Manifest manifest = new Manifest(is)
+
                             if (!manifest.getMainAttributes().containsKey(AUTOMATIC_MODULE_NAME)) {
-                                manifest.getMainAttributes().put(new Attributes.Name(AUTOMATIC_MODULE_NAME), dependencyModule.moduleReference.descriptor().name());
+                                setAutomaticModuleName(manifest, dependencyModule);
                                 try (OutputStream jarOutput = Files.newOutputStream(manifestPath)) {
                                     manifest.write(jarOutput);
                                 }
@@ -60,14 +64,29 @@ abstract class ModularizeDependenciesTask extends DefaultTask {
                         }
                     } else {
                         Manifest manifest = new Manifest();
-                        manifest.getMainAttributes().put(new Attributes.Name(AUTOMATIC_MODULE_NAME), dependencyModule.moduleName);
+                        setAutomaticModuleName(manifest, dependencyModule)
                         try (OutputStream jarOutput = Files.newOutputStream(manifestPath)) {
                             manifest.write(jarOutput);
                         }
                     }
                 }
             }
+
+            // the original maven plugin has the webjar logic here
+
+            getFilesystemOperations().copy { copySpec -> {
+                copySpec.from(project.zipTree(dependencyModule.path.toFile()))
+                copySpec.into(explodedDirectory.dir(generateModuleName(dependencyModule)))
+            }}
         }
+    }
+
+    def setAutomaticModuleName(Manifest manifest, DependencyModule dependencyModule) {
+        manifest.getMainAttributes().put(new Attributes.Name(AUTOMATIC_MODULE_NAME), generateModuleName(dependencyModule))
+    }
+
+    private String generateModuleName(DependencyModule dependencyModule) {
+        dependencyModule.group + '.' + dependencyModule.moduleReference.descriptor().name()
     }
 
 }

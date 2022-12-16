@@ -9,13 +9,12 @@ class DependencyModule {
 
     final ModuleReference moduleReference;
 
-    DependencyModule(Path path, ModuleReference moduleReference) {
+    final String group;
+
+    DependencyModule(Path path, ModuleReference moduleReference, String group) {
         this.path = path;
         this.moduleReference = moduleReference;
-    }
-
-    String getModuleName() {
-        return moduleReference.descriptor().name(); // TODO: 1. Can moduleReference be null? 2. There's additional logic in the maven plugin
+        this.group = group;
     }
 
 }

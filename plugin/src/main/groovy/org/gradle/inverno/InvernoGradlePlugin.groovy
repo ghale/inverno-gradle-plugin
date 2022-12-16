@@ -3,8 +3,8 @@
  */
 package org.gradle.inverno
 
-import org.gradle.api.Project
 import org.gradle.api.Plugin
+import org.gradle.api.Project
 
 /**
  * A simple 'hello world' plugin.
@@ -13,6 +13,11 @@ class InvernoGradlePlugin implements Plugin<Project> {
     void apply(Project project) {
         project.apply(plugin: 'application')
 
+        project.tasks.register(
+            'ModularizeDependencies',
+            ModularizeDependenciesTask,
+            { it.configuration = project.configurations.runtime }
+        )
 
 
         /**
